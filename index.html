@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Canvas Range Slider</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 30px;
+            padding: 0 0 50px;
+            color: #333;
+            font-size: 14px;
+            line-height: 1.6em;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+        p, ul {
+            margin: 0;
+        }
+        pre {
+            padding: 10px 10px 0 0;
+            background: #f9f9f9;
+            border: 1px solid #f2f2f2;
+            margin-bottom: 10px;
+            line-height: 1.2em;
+        }
+        .config {
+            border: 1px solid #f2f2f2;
+            margin-bottom: 10px;
+            line-height: 1.7em;
+        }
+        .config table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .config table td {
+            padding: 10px;
+            border-bottom: 1px solid #f2f2f2;
+        }
+        .config table tr:nth-child(even) td {
+            background-color: #f9f9f9;
+        }
+        .label {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+    </style>
+    <script type="text/javascript" src="canvasslider.js"></script>
+</head>
+<!-- =========================================================================== -->
+<body>
+
+   <div class="desc">
+   <h3>HTML5 CANVAS RANGE SLIDER </h3>
+     <p>A pure Javascript range slider plugin, no dependencies required.  <br/>
+        Most of the range slider controls use Javascript and a stylesheet.   <br/>
+        This slider uses a HTML5 canvas element to draw a slider without the need of a stylesheet.   <br/>
+        It is easy to maintain and gives a lot of flexibility. A quirky alternative to other sliders. <br/>
+        Features: 
+        <ul>
+        <li> Pure Javascript, no dependencies required. </li>
+        <li> All modern browsers are supported. </li>
+        <li> Dimensions set by width and height properties of the canvas element. </li>
+           <li> Multiple handles: one, two or more handles. </li>
+        <li> Change the slider value by dragging the handle or clicking on the track.</li>
+        <li> Create a snapshot image of the slider. </li>
+        <li> The ability of the handle to either snap to tick values or to be positioned at any point along the slider. </li>
+        <li> Auto-generate a range of evenly spaced discrete values (by step or count options). </li>
+        <li> Simple number formatting. </li>
+        <li> Multiple handler shapes. </li>
+        <li> User defined color schemes. </li>
+        </ul>
+     </p>
+   </div>  <!-- desc -->
+
+   <div class="desc">
+   <h3>DEMO </h3>
+   <canvas id="myCanvas1" width=800 height=80  title="slider 1" > </canvas>   <br/> <br/>
+   <canvas id="myCanvas2" width=800 height=80  title="slider 2" > </canvas>   <br/> <br/>
+   <canvas id="myCanvas3" width=800 height=45 title="slider 3" ></canvas>   <br/>  
+
+<!--
+   <button onclick="CS1.setValue(0,-59)(1,-30);"> Set Val </button>   &nbsp; &nbsp;
+   <button onclick="alert(CS1.getValue(0));"> Get Val </button>  <br/> <br/>
+-->
+   </div>  <!-- desc -->
+
+   <div class="desc">
+   <h3>HOW TO USE</h3>
+         <p>Include the Javascript file:</p>
+            <pre>
+    &lt;script src="js/canvasslider.js"&gt;&lt;/script&gt;
+            </pre>
+         <p>Add a canvas element to your HTML code:</p>
+            <pre>
+    &lt;canvas id="mySlider" width=800  height=80 &lt;/canvas&gt;
+            </pre>
+         <p>Add a small Javascript piece to your HTML code:</p>
+    <pre>
+    var mySlider = new CanvasSlider({
+       canvas: "mySlider",
+       range: {min: 0, max: 80.4, count: 5},
+       start: [40.6],
+       snapToTicks: true,
+       showLabels: true,
+       showMajorTicks: true,
+       showMinorTicks: false,
+       showToolTip: true,
+       showValueBox: false,
+       format: {decimals: 0, prefix: "€ ", suffix: ""},
+       handle: {shape: "ellipse", w: 20, h: 20, hue: 240},
+       baseColor: {h: 207, s: 60, v: 100}
+    });
+    </pre>
+    </div>  <!-- desc -->
+
+    <div class="desc">
+    <h3>CONFIGURATION</h3>
+        <p>
+           Configuration properties are used if a new instance of the slider is initiated. The canvas option is required, all other options are optional.  <br/>
+           Set the width and height of the slider in the html code of the canvas.  <br/>
+           Depending on the options you choose, the preferred height of the canvas varies between 45px and 80px. <br/>
+           The width and height can also be set after a new instance of the slider is initiated. <br/>
+        </p>
+
+    <div class="config">
+      <table>
+          <tr>
+              <td class="label">canvas</td>
+              <td>Reference to a canvas element or id of a canvas element. Required.</td>
+          </tr>
+          <tr>
+              <td class="label">range</td>
+              <td>
+                 An array of values (floats) e.g. <b>[1, 3, 9, 15, 18]</b> or an object e.g. <b>{min: 1, max: 100}</b>. <br/>
+                 If the object has a property <b>count</b> then an evenly spaced range of floats is generated between <b>min</b> and <b>max</b>. <br/> 
+                 If the object has a property <b>step</b> then a range of floats with spacing step is generated between <b>min</b> and <b>max</b>. <br/> 
+                 <b>Default: [0,100]</b>.
+              </td>
+          </tr>
+          <tr>
+              <td class="label">start</td>
+              <td>An array of floats for the initial values of the slider. The number of values determines the number of handles <b>Default: [0,0]</b>.</td>
+          </tr>
+
+          <tr>
+              <td class="label">snapToTicks</td>
+              <td>Boolean (true or false) to either snap to tick values or to be positioned at any point along the slider <b>Default: false</b>. </td>
+          </tr>
+          <tr>
+              <td class="label">showLabels</td>
+              <td>Boolean (true or false) to show or hide number labels along the slider <b>Default: true</b>. </td>
+          </tr>
+          <tr>
+              <td class="label">showMajorTicks</td>
+              <td>Boolean (true or false) to show or hide major tick marks along the slider <b>Default: true</b>. </td>
+          </tr>
+          <tr>
+              <td class="label">showMinorTicks</td>
+              <td>Boolean (true or false) to show or hide minor tick marks along the slider <b>Default: true</b>. Only valid if showMajorTicks is true. </td>
+          </tr>
+          <tr>
+              <td class="label">showToolTip</td>
+              <td>Boolean (true or false) to show or hide tooltip(s) above the handle(s) <b>Default: true</b>.  </td>
+          </tr>
+          <tr>
+              <td class="label">showValueBox</td>
+              <td>Boolean (true or false) to show or hide a valuebox for handle 0 and 1, left and right of the track. <b>Default: false</b>.  </td>
+          </tr>
+          <tr>
+              <td class="label">disabled</td>
+              <td>Boolean (true or false) to disable/enable the slider <b>Default: false</b>.</td>
+          </tr>
+          <tr>
+              <td class="label">format</td>
+              <td>An object to set the format of numbers. <b>Default: {decimals: 0, prefix: "", suffix: ""}</b>.</td>
+          </tr>
+          <tr>
+              <td class="label">handle</td>
+              <td>An object with optional properties. <b>Default: {shape: "rectangle", w: 20, h: 20, hue: auto} </b>.   <br/>
+                  The property <b>shape</b> can have values "rectangle" and "ellipse".  <br/>
+                  The properties <b>w</b> and <b>h</b> define the width and height of the handle (px).  <br/>
+                  The property <b>hue</b> is the hue-component of the color of the handle. Values in the range [0,360].   <br/>
+                 
+              </td>
+          </tr>
+          <tr>
+              <td class="label">baseColor</td>
+              <td>An object to define the base color of the slider, e.g. <b>{h: 207, s: 60, v: 100}</b>. <br/>
+                  The base color has the format of a <b>HSV</b> color with valid ranges h: <b>[0,360]</b>, s: <b>[0,100]</b>, v: <b>[0,100]</b>. <br/>
+                  This color is used to define the colors of the slider. 
+              </td>
+          </tr>
+          <tr>
+              <td class="label">onChange</td>
+              <td>Callback function when one of the values of the slider is changed. When user starts dragging a handle, values change very often. <br/>
+                  An alternative is to use the onDragStart or onDragEnd events. Parameters passed: (index, value). <b>Default: null.</b></td>
+          </tr>
+          <tr>
+              <td class="label">onDragStart</td>
+              <td>Callback function when a user starts dragging a handle. Parameters passed: (index, value). <b>Default: null.</b></td>
+          </tr>
+          <tr>
+              <td class="label">onDragEnd</td>
+              <td>Callback function when the handle ends dragging after onDragStart. Parameters passed: (index, value). <b>Default: null.</b></td>
+          </tr>
+          <tr>
+              <td class="label">onMouseDown</td>
+              <td>Callback function when the user has pressed the mouse button while on slider track or handle. No parameters. <b>Default: null.</b></td>
+          </tr>
+          <tr>
+              <td class="label">onMouseUp</td>
+              <td>Callback function when the user has released the mouse button after onMouseDown. No parameters. <b>Default: null.</b></td>
+          </tr>
+
+      </table>
+    </div>  <!-- config -->
+    </div>  <!-- desc -->
+
+    <div class="desc">
+    <h3>METHODS</h3>
+        <p>Methods can be used after a new instance of slider is initiated. E.g. <b>var a = slider.getValue(2);</b>  </p>
+        <br/>
+
+    <div class="config">
+      <table>
+          <tr>
+              <td class="label">getValue(idx)</td>
+              <td>Returns the current slider value of the handle with given index. </td>
+          </tr>
+          <tr>
+              <td class="label">setValue(idx, value)</td>
+              <td>Sets the slider value for the handle with given index. More sets at once possible.  <br/> 
+                  E.g. <b>slider.setValue(0,23)(1,44);</b> Set value 23 for handle 0 and 44 for handle 1.
+              </td>
+          </tr>
+          <tr>
+              <td class="label">disabled = [true,false]</td>
+              <td>Makes the slider disabled/enabled. E.g. <b>slider.enabled = true;</b></td>
+          </tr>
+          <tr>
+              <td class="label">onChange = [callback]</td>
+              <td>Define callback function of the onChange event. Parameters passed: (index, value).</td>
+          </tr>
+          <tr>
+              <td class="label">onDragStart = [callback]</td>
+              <td>Define callback function of the onDragStart event. Parameters passed: (index, value).</td>
+          </tr>
+          <tr>
+              <td class="label">onDragEnd = [callback]</td>
+              <td>Define callback function of the onDragEnd event. Parameters passed: (index, value).</td>
+          </tr>
+          <tr>
+              <td class="label">onMouseDown = [callback]</td>
+              <td>Define callback function of the onMouseDown event. No parameters passed.</td>
+          </tr>
+          <tr>
+              <td class="label">onMouseUp = [callback]</td>
+              <td>Define callback function of the onMouseUp event. No parameters passed.</td>
+          </tr>
+          <tr>
+              <td class="label">snapToTicks = [true,false]</td>
+              <td> Handle either snap to tick values or to be positioned at any point along the slider.</td>
+          </tr>
+          <tr>
+              <td class="label">showLabels = [true,false]</td>
+              <td> Either show or hide number labels along the slider. E.g. <b>slider.showLabels = true;</b></td>
+          </tr>
+          <tr>
+              <td class="label">showMajorTicks = [true,false]</td>
+              <td> Either show or hide major tick marks along the slider. </td>
+          </tr>
+          <tr>
+              <td class="label">showMinorTicks = [true,false]</td>
+              <td> Either show or hide minor tick marks along the slider. Only valid if showMajorTicks is true. </td>
+          </tr>
+          <tr>
+              <td class="label">showToolTip = [true,false]</td>
+              <td> Show or hide tooltip(s) above the handle(s). </td>
+          </tr>
+          <tr>
+              <td class="label">showValueBox = [true,false]</td>
+              <td> Show or hide valuebox for handle 0 and 1, left and right of the track. </td>
+          </tr>
+
+      </table>
+    </div> <!-- config -->
+    </div>  <!-- desc -->
+
+<!-- =========================================================================== -->
+<script>
+
+window.onload = function(e) { 
+   return 0;
+}  // onload()
+
+// Range examples:
+// a. [0, 170, 270, 370, 470]  // array of increasing values (floats of integers)
+// b. {min: -100, max: 300.7, step: 35}
+// c. {min: 500, max: 1200, count: 35}
+// d. {min: -100, max: 300.7}
+
+var CS1 = new CanvasSlider({
+  canvas: "myCanvas1",
+  range: {min: -100, max: 200, step: 37.5},
+  start: [-44, -0.7, 78 , 200, 144, 215 ],
+  snapToTicks: false,
+  showLabels: true,
+  showMajorTicks: true,
+  showMinorTicks: true,
+  showToolTip: true,
+  //onChange: function(i, val) { console.log("onChange A: ", i, val)},
+  format: {decimals: 1},
+  baseColor: {h: 207, s: 60, v: 100},
+  handle: {shape: "ellipse", w: 20, h: 20, hue: 360}
+});
+
+var CS2 = new CanvasSlider({
+  canvas: "myCanvas2",
+  range: {min: 0, max: 80.4, count: 5},
+//  range: [38, 0,  76, 23 ,50, 44, 80.4],
+  start: [40.6],
+  snapToTicks: true,
+  showLabels: true,
+  showMajorTicks: true,
+  showMinorTicks: false,
+  showToolTip: true,
+  format: {decimals: 0, prefix: "€ ", suffix: ""},
+  baseColor: {h: 340, s: 50, v: 90},
+  handle: {shape: "rectangle", w: 20, h: 20, hue: 340}
+});
+
+var CS3 = new CanvasSlider({
+  canvas: "myCanvas3",
+  range: {min: 0, max: 100, step: 1},
+  start: [40,70],
+  snapToTicks: true,
+  showLabels: true,
+  showMajorTicks: false,
+  showMinorTicks: false,
+  showToolTip: false,
+  showValueBox: true,
+  format: {decimals: 0, prefix: "", suffix: "%"},
+  baseColor: {h: 136, s: 50, v: 90},
+  handle: {shape: "rectangle", w: 10, h: 20, hue: 136}
+});
+
+
+
+//console.log("showLabels", CS2.conf.showLabels);
+//CS1.setValue(0,-55)(1,18);
+//console.log("CS1.getValue(1): ", CS1.getValue(1));
+
+//CS1.onChange = function(i, val) { console.log("onChange B: ", i, val); }  // heavy when dragging
+//CS2.onDragStart = function(i, val) { console.log("onDragStart: ", i, val);  CS2.showToolTip = true; } 
+//CS2.onDragEnd = function(i, val) { console.log("onDragEnd: ", i, val);   CS2.showToolTip = false;}   
+//CS2.onMouseDown = function() { console.log("Event onMouseDown CS2 "); }
+//CS2.onMouseUp = function() { console.log("Event onMouseUp CS2 ");  }
+//CS2.snapToTicks = false;
+//CS2.showLabels = true;
+//CS2.showMajorTicks = true;
+//CS2.showMinorTicks = false;
+//CS2.showToolTip = false;
+//CS2.showValueBox = true;
+//CS2.disabled = false;
+
+//CS2.setValue(0,38);
+
+// ======================================================================================
+</script>
+
+
+</body>
+</html>
+
