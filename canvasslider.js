@@ -231,7 +231,7 @@
            toolTip.fill = this.color.toolTip.fill;
            toolTip.stroke = this.color.toolTip.stroke;
            toolTip.visible = (this.conf.showToolTip == true);
-           toolTip.w = 42*this.ux;  //0.07*this.canvas.width;
+           toolTip.w = 60*this.ux;  //0.07*this.canvas.width;
            toolTip.h = 20*this.uy;  // 0.24*this.canvas.height;
            toolTip.x = this.track.values[j] - toolTip.w/2;
            var h28 = 28*this.uy;   //0.32*this.canvas.height;
