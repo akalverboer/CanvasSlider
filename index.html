@@ -50,7 +50,7 @@
         }
 
     </style>
-    <script type="text/javascript" src="canvasslider.js"></script>
+    <script type="text/javascript" src="js/canvasslider.js"></script>
 </head>
 <!-- =========================================================================== -->
 <body>
@@ -84,10 +84,11 @@
    <canvas id="myCanvas2" width=800 height=80  title="slider 2" > </canvas>   <br/> <br/>
    <canvas id="myCanvas3" width=800 height=45 title="slider 3" ></canvas>   <br/>  
 
-<!--
+   <!-- TEST
    <button onclick="CS1.setValue(0,-59)(1,-30);"> Set Val </button>   &nbsp; &nbsp;
-   <button onclick="alert(CS1.getValue(0));"> Get Val </button>  <br/> <br/>
--->
+   <button onclick="testChanges()"> Test Changes </button>  <br/> <br/>
+   -->
+
    </div>  <!-- desc -->
 
    <div class="desc">
@@ -305,6 +306,7 @@ window.onload = function(e) {
 // c. {min: 500, max: 1200, count: 35}
 // d. {min: -100, max: 300.7}
 
+
 var CS1 = new CanvasSlider({
   canvas: "myCanvas1",
   range: {min: -100, max: 200, step: 37.5},
@@ -323,7 +325,7 @@ var CS1 = new CanvasSlider({
 var CS2 = new CanvasSlider({
   canvas: "myCanvas2",
   range: {min: 0, max: 80.4, count: 5},
-//  range: [38, 0,  76, 23 ,50, 44, 80.4],
+  //  range: [38, 0,  76, 23 ,50, 44, 80.4],
   start: [40.6],
   snapToTicks: true,
   showLabels: true,
@@ -350,26 +352,30 @@ var CS3 = new CanvasSlider({
   handle: {shape: "rectangle", w: 10, h: 20, hue: 136}
 });
 
+function testChanges() {
+   // PUSH BUTTON TO TEST OPTIONS
+   //console.log("showLabels", CS2.conf.showLabels);
+   //CS1.setValue(0,-55)(1,18);
+   alert("TEST getValue(0): " + CS1.getValue(0));
+   //console.log("CS1.getValue(1): ", CS1.getValue(1));
 
+   //CS1.onChange = function(i, val) { console.log("onChange B: ", i, val); }  // heavy when dragging
+   //CS2.onDragStart = function(i, val) { console.log("onDragStart: ", i, val);  CS2.showToolTip = true; } 
+   //CS2.onDragEnd = function(i, val) { console.log("onDragEnd: ", i, val);   CS2.showToolTip = false;}   
+   //CS2.onMouseDown = function() { console.log("Event onMouseDown CS2 "); }
+   //CS2.onMouseUp = function() { console.log("Event onMouseUp CS2 ");  }
+   //CS2.snapToTicks = false;
+   //CS2.showLabels = true;
+   //CS2.showMajorTicks = true;
+   //CS2.showMinorTicks = false;
+   //CS2.showToolTip = false;
+   //CS2.showValueBox = true;
+   //CS2.disabled = true;
+   //CS1.snapToTicks = true;
 
-//console.log("showLabels", CS2.conf.showLabels);
-//CS1.setValue(0,-55)(1,18);
-//console.log("CS1.getValue(1): ", CS1.getValue(1));
-
-//CS1.onChange = function(i, val) { console.log("onChange B: ", i, val); }  // heavy when dragging
-//CS2.onDragStart = function(i, val) { console.log("onDragStart: ", i, val);  CS2.showToolTip = true; } 
-//CS2.onDragEnd = function(i, val) { console.log("onDragEnd: ", i, val);   CS2.showToolTip = false;}   
-//CS2.onMouseDown = function() { console.log("Event onMouseDown CS2 "); }
-//CS2.onMouseUp = function() { console.log("Event onMouseUp CS2 ");  }
-//CS2.snapToTicks = false;
-//CS2.showLabels = true;
-//CS2.showMajorTicks = true;
-//CS2.showMinorTicks = false;
-//CS2.showToolTip = false;
-//CS2.showValueBox = true;
-//CS2.disabled = false;
-
-//CS2.setValue(0,38);
+   //CS2.setValue(0,15);
+   return 0;
+}  // testChanges();
 
 // ======================================================================================
 </script>
@@ -377,4 +383,3 @@ var CS3 = new CanvasSlider({
 
 </body>
 </html>
-
