@@ -948,8 +948,7 @@
    }  // === FRONTEND() ===
 
    window.CanvasSlider = FRONTEND;   // FOR EXTERNAL USE: name of slider object to create new instance
-   return 0;
-})(); // FRONTEND
+
 //==================================================================================================
 
 // === GENERAL FUNCTIONS ===
@@ -1170,6 +1169,9 @@ var Color = function (iColor) {
 // TEST COLORS
 //var c = new Color([10,100,100]);
 //console.log("Color: ", c.color, c.hex);
+
+   return 0;
+})(); // IIFE
 //=======================================================================================
 //=======================================================================================
 
