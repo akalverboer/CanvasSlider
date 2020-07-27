@@ -2,212 +2,83 @@
 // CANVAS RANGE SLIDER CONTROL
 // A pure Javascript Range Slider plugin, no dependencies required.
 // Slider is implemented on a CANVAS element (sliding over pixels)
-// All values of the slider are measured in pixels.
-// The pixel range is transformed to the range the user has chosen.
+//
 // License: MIT 2020 Arthur Kalverboer
 //==========================================================================
 
 'use strict';
- 
-(function () {
-   // CanvasSlider calls PixelSlider 
 
-   var PIXSLD = function (iConf) {
-     // Input parm is an object with required attribute for canvas reference (id or el).
-     // All other properties are optional with default value.
-     var thisSlider = this;  // global
+(function () {
+   // To obtain data privacy we use an IIFE, pronounced "iffy": Immediately-Invoked Function Expression
+   // Objects: FRONTEND, VIEW and MODEL. The FRONTEND initiates the application.
+   // Minimal interaction between VIEW and MODEL.
+   // Create an instance of the slider by using global window.CanvasSlider.
+
+   var VIEW = function (iConf) {
+     // Object for drawing on the canvas and to signal mouse events.
+     // VIEW can read MODEL properties and methods. Decoupled by functionality.
+     var thisView = this;  // global
+     var u = this;         // container for unit properties
+     this.model = null;    // Ref to model object with abstract slider and state of slider
+     this.conf = iConf;    // See creator for details
+     /*
+         conf.canvas = canvasElem;
+         conf.handle = this.conf.handle;
+         conf.format = this.conf.format;
+         conf.baseColor = this.conf.baseColor;
+         conf.showLabels = this.conf.showLabels;
+         conf.showMajorTicks = this.conf.showMajorTicks;
+         conf.showMinorTicks = this.conf.showMinorTicks;
+         conf.showToolTip = this.conf.showToolTip;
+         conf.showValueBox = this.conf.showValueBox;
+     */
+
+     this.canvas = this.conf.canvas;
+     //this.canvas.width = 600;   // TEST
+     //this.canvas.height = 80;   // TEST
+     this.ctx = this.canvas.getContext("2d");
+
 
      // If the canvas width is changed, the slider is scaled automatically horizontally.
      // This comes because we make the width properties of the drawing dependent of canvas.width.
-     // If the canvas height is changed, no scaling: only more space on the canvas.
+     // If the canvas height is changed, no scaling: only more space is used on the canvas.
      // To implement the scaling, we define a drawing unit for width and height.
-     // We make our design on a canvas with dimensions 600x80. One unit is 1px. Called by: this.ux and this.uy
-     Object.defineProperty(this, 'ux', { get: function() { return this.canvas.width/600;  } });
-     Object.defineProperty(this, 'uy', { get: function() { return 1;  } });  // CONSTANT UNIT
-     ////Object.defineProperty(this, 'uy', { get: function() { return this.canvas.height/80;  } });
-     ////Object.defineProperty(this, 'ux', { get: function() { return 1;  } });
+     // We make our design on a canvas with dimensions 600x80.
+     // One drawing unit is 1px. Refer to drawing unit by: u.x and u.y
+     Object.defineProperty(u, 'x', { get: function() { return this.canvas.width/600;  } });
+     Object.defineProperty(u, 'y', { get: function() { return 1;  } });  // CONSTANT UNIT
 
-     this.conf = {};
-     this.conf.canvas = null;    // id or element  REQUIRED 
-     this.conf.range = [0,100];  // array of real values; at least first/last but also tick values
-     this.conf.start = [0, 0];   // set start values (= number of handles) 
-     this.conf.handle = {shape: "rectangle", w: 20, h: 20, hue: null};  // shape: rectangle or ellipse, hue: number [0,360] 
-     this.conf.format = {decimals: 0, prefix: "", suffix: ""};  // Simple number formatting
-     this.conf.baseColor = {h: 207, s: 60, v: 100};  // Defines color scheme. Valid HSV color.
-     // The following config properties can also be updated on the fly.
-     this.conf.disabled = false;    // disable mouse 
-     this.conf.onChange = null;     // Event fired if slider value changed  (parm: index, realValue)
-     this.conf.onDragStart = null;  // Event fired if handle is start dragging (parm: index, realValue)
-     this.conf.onDragEnd = null;    // Event fired if handle is stopped dragging (parm: index, realValue)
-     this.conf.onMouseDown = null;  // Event fired if mouseclick moved down on slider track or handle
-     this.conf.onMouseUp = null;    // Event fired if mouseclick moved up after mouseclick down
-     this.conf.snapToTicks = false; // Handle positioned on tick values. Array conf.range used. 
-     this.conf.showLabels = true;   // Show labels. If snapToTicks==true then show tick labels and markers. 
-     this.conf.showMajorTicks = true;   // Show major ticks.
-     this.conf.showMinorTicks = true;   // Show minor ticks if showMajorTicks == true 
-     this.conf.showToolTip = true;      // boolean 
-     this.conf.showValueBox = false;    // boolean 
+     // Margin of track relative to left and right borders of canvas. UPDATE ALLOWED.
+     this.margin = {left: 36*u.x, right: 36*u.x};  // ********************
+     this.xmin = this.margin.left;                 // TRACK RANGE for PIXEL VALUES
+     this.xmax = 600*u.x - this.margin.right;  // TRACK RANGE for PIXEL VALUES
 
-     // System properties
      this.numWidth = 30;   // Max width for display number (px)
      this.euroSign = "€";  // Euro currency symbol
 
-     // OBJECT DEFINITIONS
-     this.canvas = null;  // HTML element
-     this.ctx = null;
-
-     // USER DEFINED RANGE
-     this.re = {};  // Real values are FLOATS. Function "remap" for conversion slider values pix <-> real
-     this.re.rmin = 0;
-     this.re.rmax = 100;
-
-     this.track = new (function() {
-       // A slider is in concept a line from point a to point b with one or more points c at this line.
-       // The track represents this line. It is drawn as a rectangle.
-       // The track records the values of the slider along the width of the track.
-       // Draw function. Partitioning of the track to highlight parts.
-       var _this = this;
-       this.x = 40; this.y = 100; this.w = 500; this.h = 14; // SEE INIT(). Dimensions of track (px).
-       this.values = [];   // Array of slider values. Often 1 or 2 values, but there is no limit. Input from outside 
-
-       Object.defineProperty(this, 'xmin', { get: function() { return this.x; } });
-       Object.defineProperty(this, 'xmax', { get: function() { return (this.x + this.w); } });
-       Object.defineProperty(this, 'len', { get: function() { return this.values.length; } });
-
-       this.fillColor = "#EAEAEA"; 
-       this.highlightColor = "#3FB8AF";
-       this.highlightGradient = {stop1: "#4CE6D8", stop2: "#369B93"};
-       this.strokeColor = "#000";
-
-       this.getValue = function (idx) {
-          // Return pixel slider value with given index: this.values[idx]
-          // Neg idx allowed: -1 >> last
-          var val = this.values.slice(idx)[0]; 
-          return val;
-       }  // getValue()
-
-       this.setValue = function (idx, val) {
-          // Set pixel slider value with given index. Neg index NOT allowed
-          // Monitor SORTING of values and correct if needed.
-          if (idx < 0 || idx >= this.len) {console.log("Error index track.setValue"); return 0;}
-          var val2 = val;
-          var arr = this.rangeArray();
-          var minVal = arr[idx][0];   var maxVal = arr[idx][2];  // Limits for handler with index idx
-          if (val2 < minVal) val2 = minVal;
-          if (val2 > maxVal) val2 = maxVal;
-
-          this.values[idx] = val2;
-          thisSlider.onChangePixValue(idx, val2);  // run callback
-          return 0;
-       }  // setValue()
-
-       this.rangeArray = function() {
-          // Array of ranges of each value (handle) used to keep increasing order.
-          // Element of resulting array is array [min, value, max]
-          var rangeArr = new Array(this.values.length);
-          var arr = this.trackArray();  // VALUES WITH MIN/MAX
-          var idx = 0;
-          for (var j=1; j < arr.length - 1; j++ ) {
-             rangeArr[idx] = [arr[j-1], arr[j], arr[j+1]];
-             idx++;
-          }
-          return rangeArr;
-       }  // rangeArray()
-
-       this.trackArray = function() {
-          // Array of VALUES extended with MIN/MAX 
-          var arr = [];  // Length: values.length + 2
-          arr.push(this.xmin);
-          arr.push(...this.values);  // spread operator
-          arr.push(this.xmax);
-          return arr;
-       }  // trackArray()
-
-       this.contains = function(iPoint) {
-          var rect = {x: this.x, y: this.y, w: this.w, h: this.h};
-          return pointInRect(rect, iPoint);
-       }  // contains()
-
-       this.createSections = function() {
-          // Partition the track into rectangles positioned between slider values.  nouislider term: connects
-          var Section = {x: _this.x, y: _this.y, w: _this.w, h: _this.h, highlight: false};
-          var arr = this.trackArray();
-
-          var sections = new Array(this.values.length + 1);
-          for (var j=0; j < arr.length - 1; j++ ) {
-             var section = Object.create(Section);
-             section.x = arr[j];
-             section.w = arr[j+1] - arr[j];
-             if (j % 2 == 0) section.highlight = true;  // if even: highlight
-             sections[j] = section;
-          }
-          return sections;
-       }  // createSections()
-
-       this.draw = function(ctx) {
-          ctx.fillStyle = this.fillColor;
-          ctx.strokeStyle = this.strokeColor;
-          ctx.lineWidth = 1; var dx = 0.5; var dy = 0.5; // sharp line/border
-          ctx.roundRect(this.x+dx, this.y+dy, this.w, this.h, 3).fill();
-          ctx.roundRect(this.x+dx, this.y+dy, this.w, this.h, 3).stroke();
-          //////drawRect(ctx, this.x+dx, this.y+dy, this.w, this.h);
-          // Draw sections (with highlights)
-          ctx.lineWidth = 1;
-          var sect = this.createSections();
-          for (var j=0; j < sect.length; j++ ) {
-             if (sect[j].highlight == true) {
-                var grd = ctx.createLinearGradient(0,sect[j].y+dy,0,sect[j].y+dy + sect[j].h); // vertical gradient
-                grd.addColorStop(0,this.highlightGradient.stop1);
-                grd.addColorStop(1,this.highlightGradient.stop2);
-                ctx.fillStyle = grd;
-                //  ctx.fillStyle = this.highlightColor;
-                ctx.roundRect(sect[j].x+dx, sect[j].y+dy, sect[j].w, sect[j].h, 3).fill();
-             }
-          }
-          return 0;
-       }
-       return this;
-     })();  // === TRACK ===
-
      // === METHODS ===
      this.init = function () {
-        // At init: override default conf by user parms
-        for (var i in this.conf) { if (iConf.hasOwnProperty(i)) this.conf[i] = iConf[i]; } 
-
-        if (typeof this.conf.canvas === 'object') this.canvas = this.conf.canvas;
-        else this.canvas = document.getElementById(this.conf.canvas.replace('#', ''));
-
-        if (!this.canvas) return console.log('Cannot find canvas element...');  // STOP
-        // The width attribute of canvas element defaults to 300, and the height attribute defaults to 150.
-        // DO NOT USE CSS (stylesheet) TO SET WIDTH
-
-        //this.canvas.width = 600;   // TEST
-        //this.canvas.height = 80;   // TEST
-        this.ctx = this.canvas.getContext("2d");
-
-        if (this.conf.range.length < 2) this.conf.range = [0,100];
-        if (this.conf.start.length == 0) this.conf.start = [0];
         if (!this.conf.format.hasOwnProperty("decimals")) this.conf.format.decimals = 0;
         if (!this.conf.format.hasOwnProperty("prefix")) this.conf.format.prefix = "";
         if (!this.conf.format.hasOwnProperty("suffix")) this.conf.format.suffix = "";
 
+        // Set track dimensions
+        this.track = new Track();
+        this.track.x = this.xmin;                     // 0.05 * this.canvas.width;   // 30 units
+        this.track.w = this.xmax - this.xmin;
+        this.track.h = 14*u.y;                     // 0.17*this.canvas.height;   // 14 units
+        this.track.y = parseInt(this.canvas.height / 2) - this.track.h/2 - 2;  // Track vertical aligned: middle
         this.setColors();
-
-        this.track.x = 30*this.ux;   // 0.05 * this.canvas.width;   // 30;
-        this.track.w = 600*this.ux - 2*this.track.x;   //this.canvas.width - 2*this.track.x;
-        this.track.h = 14*this.uy;  // 0.17*this.canvas.height;   // 14;
-        this.track.y = parseInt(this.canvas.height / 2) - this.track.h/2 - 2;  // Verticale aligned MID
         this.track.fillColor = this.color.track.fill;
         this.track.highlightColor = this.color.track.highlight;
         this.track.highlightGradient = this.color.track.highlightGradient;
         this.track.strokeColor = this.color.track.stroke;
 
-        this.re.rmin = this.conf.range[0];
-        this.re.rmax = this.conf.range[this.conf.range.length -1];
-        this.initSliderValues();
+        this.model.initSliderValues();
+        //console.log("VIEW VALUES MODEL VALUES ", this.model.values);
 
         this.sH = [];  // HANDLERS
-        for (var j=0; j < this.track.values.length; j++ ) {
+        for (var j=0; j < this.model.values.length; j++ ) {
            var sH = Object.create(Handle);
            sH.shape = (this.conf.handle.hasOwnProperty("shape")) ? this.conf.handle.shape : "rectangle";  // user defined
            sH.w = (this.conf.handle.hasOwnProperty("w")) ? this.conf.handle.w : 20;  // user defined
@@ -217,8 +88,8 @@
            sH.fillGradient = this.color.handle.fillGradient;
            sH.stroke = this.color.handle.stroke;
 
-           sH.x = this.track.values[j] - sH.w/2;
-           sH.y = this.track.y - (sH.h - this.track.h)/2;
+           sH.x = parseFloat(this.model.values[j] - sH.w/2);
+           sH.y = parseFloat(this.track.y - (sH.h - this.track.h)/2);
            this.sH.push(sH);
         }
 
@@ -226,37 +97,37 @@
         var prefix = this.conf.format.prefix;
         var suffix = this.conf.format.suffix;
         this.toolTips = [];  // TOOLTIPS (above track)
-        for (var j=0; j < this.track.values.length; j++ ) {
+        for (var j=0; j < this.model.values.length; j++ ) {
            var toolTip = Object.create(ValueBox);
            toolTip.fill = this.color.toolTip.fill;
            toolTip.stroke = this.color.toolTip.stroke;
            toolTip.visible = (this.conf.showToolTip == true);
-           toolTip.w = 60*this.ux;  //0.07*this.canvas.width;
-           toolTip.h = 20*this.uy;  // 0.24*this.canvas.height;
-           toolTip.x = this.track.values[j] - toolTip.w/2;
-           var h28 = 28*this.uy;   //0.32*this.canvas.height;
+           toolTip.w = 60*u.x;  //0.07*this.canvas.width;
+           toolTip.h = 20*u.y;  // 0.24*this.canvas.height;
+           toolTip.x = this.model.values[j] - toolTip.w/2;
+           var h28 = 28*u.y;   //0.32*this.canvas.height;
            toolTip.y = this.track.y - h28;
-           toolTip.text = prefix + this.pixToReal(this.track.values[j]).toFixed(d) + suffix;
+           toolTip.text = prefix + this.model.pixToReal(this.model.values[j]).toFixed(d) + suffix;
            this.toolTips.push(toolTip);
         }
 
         this.valueBoxes = [];  // VALUEBOXES (max. 2; left/right to track)
-        for (var j=0; j < this.track.values.length; j++ ) {
+        for (var j=0; j < this.model.values.length; j++ ) {
            var valueBox = Object.create(ValueBox);
            valueBox.fill = null;      // NO FILL    this.color.valueBox.fill;
            valueBox.stroke = null;    // NO STROKE  this.color.valueBox.stroke;
            valueBox.visible = (this.conf.showValueBox == true);
-           valueBox.w = 26*this.ux; 
-           valueBox.h = 20*this.uy; 
-           valueBox.y = this.track.y - 4*this.uy;
+           valueBox.w = 26*u.x; 
+           valueBox.h = 20*u.y; 
+           valueBox.y = this.track.y - 4*u.y;
            if (j==0) {
-             valueBox.x = 2*this.ux;
-             valueBox.text = prefix + this.pixToReal(this.track.values[j]).toFixed(d) + suffix;
+             valueBox.x = 2*u.x;
+             valueBox.text = prefix + this.model.pixToReal(this.model.values[j]).toFixed(d) + suffix;
              this.valueBoxes.push(valueBox);
            }
            if (j==1) {
              valueBox.x = this.track.x + this.track.w + 2;
-             valueBox.text = prefix + this.pixToReal(this.track.values[j]).toFixed(d) + suffix;
+             valueBox.text = prefix + this.model.pixToReal(this.model.values[j]).toFixed(d) + suffix;
              this.valueBoxes.push(valueBox);
            }
            if (j>1) break;
@@ -265,9 +136,47 @@
         this.initEventListener();  // Init events for mouse actions
 
         this.redraw();
-
         return 0;
      }  // init()
+
+     this.redraw = function () {
+        // redraw the canvas
+        this.ctx.save();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (false) {
+           // Draw canvas border and background TEST
+           this.ctx.strokeStyle = "#333";
+           this.ctx.fillStyle = "#FAF7F8";
+           this.ctx.lineWidth = 2;
+           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);   // BETTER: use stylesheet
+           this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height); // BETTER: use stylesheet
+        }
+
+        // Draw sliderTrack
+        this.track.draw(this.ctx);
+
+        // Draw sliderHandles
+        for (var idx=0; idx < this.model.values.length; idx++ ) {
+           this.sH[idx].draw(this.ctx);
+        }
+
+        // Draw toolTips/valueBoxes
+        for (var idx=0; idx < this.model.values.length; idx++ ) {
+           if (idx==0 || idx==1) {
+             this.valueBoxes[idx].visible = this.conf.showValueBox;
+             this.valueBoxes[idx].draw(this.ctx);
+           }
+           this.toolTips[idx].visible = this.conf.showToolTip;
+           this.toolTips[idx].draw(this.ctx);
+        }
+
+        this.drawTickLabels(this.ctx, this.color.tick.stroke);
+        this.drawMinMaxLabels(this.ctx);
+
+        this.ctx.restore();
+        return 0;
+     }  // redraw()
 
      this.setColors = function() { 
         var baseColor = this.conf.baseColor;
@@ -302,123 +211,25 @@
         return 0;
      }  // setColors()
 
-     this.pixToReal = function(iPixVal) { 
-        // Convert pixel value to real value
-        // Pixel values and real values are floats
-        var realVal = remap(iPixVal, this.track.xmin, this.track.xmax, this.re.rmin, this.re.rmax); 
-        //console.log("REMAP pixToReal", iPixVal, realVal);
-        return realVal;
-     }  // pixToReal()
-
-     this.realToPix = function(iRealVal) {
-        // Convert real value to pixel value
-        // Pixel values and real values are floats
-        var pixVal = remap(iRealVal, this.re.rmin, this.re.rmax, this.track.xmin, this.track.xmax);
-        //console.log("REMAP pixToReal", iRealVal, pixVal);
-        return pixVal;
-     }  // realToPix()
-
      this.onChangePixValue = function(idx, pxVal) {
         // Define callback called when track.values changed.
         //console.log("CALLBACK 2 ", idx, pxVal);
         var d = this.conf.format.decimals;
         var prefix = this.conf.format.prefix;
         var suffix = this.conf.format.suffix;
-        var h28 = 28*this.uy;   //0.32*this.canvas.height;
-        thisSlider.toolTips[idx].x = pxVal - thisSlider.toolTips[idx].w/2;
-        thisSlider.toolTips[idx].y = thisSlider.track.y - h28;
-        thisSlider.toolTips[idx].text = prefix + this.pixToReal(pxVal).toFixed(d) + suffix;
+        var h28 = 28*u.y;   //0.32*this.canvas.height;
+        thisView.toolTips[idx].x = pxVal - thisView.toolTips[idx].w/2;
+        thisView.toolTips[idx].y = thisView.track.y - h28;  // unchanged
+        thisView.toolTips[idx].text = prefix + this.model.pixToReal(pxVal).toFixed(d) + suffix;
 
         if (idx==0 || idx==1) {
-           thisSlider.valueBoxes[idx].text = prefix + this.pixToReal(pxVal).toFixed(d) + suffix;
+           thisView.valueBoxes[idx].text = prefix + this.model.pixToReal(pxVal).toFixed(d) + suffix;
         }
 
-        thisSlider.sH[idx].x = pxVal - thisSlider.sH[idx].w/2;
+        thisView.sH[idx].x = pxVal - thisView.sH[idx].w/2;
 
-        // Call user defined callback
-        if (thisSlider.conf.onChange && typeof thisSlider.conf.onChange === 'function') {
-           var realVal = this.pixToReal(pxVal);
-           thisSlider.conf.onChange(idx, realVal);
-        }
         return 0;
      }  // onChangePixValue()
-
-
-     this.redraw = function () {
-        // redraw the canvas
-
-        this.ctx.save();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        if (false) {
-           // Draw canvas border and background TEST
-           this.ctx.strokeStyle = "#333";
-           this.ctx.fillStyle = "#FAF7F8";
-           this.ctx.lineWidth = 2;
-           this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height); // BETTER: use stylesheet
-           this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);   // BETTER: use stylesheet
-        }
-
-        // Draw sliderTrack
-        this.track.draw(this.ctx);
-
-        // Draw sliderHandles
-        for (var idx=0; idx < this.track.values.length; idx++ ) {
-           this.sH[idx].draw(this.ctx);
-        }
-
-        // Draw toolTips/valueBoxes
-        for (var idx=0; idx < this.track.values.length; idx++ ) {
-           if (idx==0 || idx==1) {
-             this.valueBoxes[idx].visible = this.conf.showValueBox;
-             this.valueBoxes[idx].draw(this.ctx);
-           }
-           this.toolTips[idx].visible = this.conf.showToolTip;
-           this.toolTips[idx].draw(this.ctx);
-        }
-
-        this.drawTickLabels(this.ctx, this.color.tick.stroke);
-        this.drawMinMaxLabels(this.ctx);
-
-        this.ctx.restore();
-        return 0;
-     }  // redraw()
-
-     this.getSliderValue = function(idx) {
-        var pxVal = this.track.getValue(idx);
-        var realVal = this.pixToReal(pxVal);
-        return realVal;
-     }  // getSliderValue()
-
-     this.setSliderValue = function(i, realVal) {
-        var realVal2 = crop(realVal, this.re.rmin, this.re.rmax);  // update if too small/large
-        var pxVal = this.realToPix(realVal2);
-        var pxVal2 = this.snapPixToTick(pxVal);
-        this.track.setValue(i, pxVal2);  // WITH CALLBACK
-        return 0;
-     }  // setSliderValue()
-
-     this.initSliderValues = function() {
-        this.track.values = Array(this.conf.start.length).fill(this.track.xmin);
-        for (var j=0; j < this.conf.start.length; j++ ) {
-           var realVal = this.conf.start[j];
-           var realVal2 = crop(realVal, this.re.rmin, this.re.rmax);  // update if too small/large
-           var pxVal = this.realToPix(realVal2);
-           var pxVal2 = this.snapPixToTick(pxVal);
-           this.track.values[j] = pxVal2;  // NO CALLBACK. 
-        }
-        //console.log("INIT VALUES 2", this.track.values);
-        return 0;
-     }  // initSliderValues()
-
-     this.snapPixToTick = function(pxVal) {
-        //console.log("SNAPTOTICK", this.conf.snapToTicks);
-        if (!this.conf.snapToTicks) return pxVal;  // NOTHING TO DO
-        var realVal = this.pixToReal(pxVal);
-        var realVal2 = snapFromTickvalues(realVal, this.conf.range);
-        var pxVal2 = this.realToPix(realVal2);
-        return pxVal2;
-     }  // snapPixToTick()
 
      this.drawMinMaxLabels = function(ctx) {
         if (!(this.conf.showLabels && !this.conf.showMajorTicks)) { return 0; }   // HIDE
@@ -428,12 +239,12 @@
         ctx.font = "11px Verdana";
         ctx.textAlign = "center";
         ctx.fillStyle = "#000";
-        var h28 = 28*this.uy; 
-        var x10 = 10*this.ux; 
-        var strMin = prefix + this.re.rmin.toFixed(d) + suffix;
-        var strMax = prefix + this.re.rmax.toFixed(d) + suffix;
-        ctx.fillText(strMin, this.track.xmin+x10, this.track.y+h28, this.numWidth);  // first label
-        ctx.fillText(strMax, this.track.xmax-x10, this.track.y+h28, this.numWidth);  // last label
+        var h28 = 28*u.y; 
+        var x10 = 10*u.x; 
+        var strMin = prefix + this.model.re.rmin.toFixed(d) + suffix;
+        var strMax = prefix + this.model.re.rmax.toFixed(d) + suffix;
+        ctx.fillText(strMin, this.xmin+x10, this.track.y+h28, this.numWidth);  // first label
+        ctx.fillText(strMax, this.xmax-x10, this.track.y+h28, this.numWidth);  // last label
         return 0;
      }  // drawMinMaxLabels()
 
@@ -450,21 +261,21 @@
         ctx.font = "11px Verdana";
         ctx.textAlign = "center";
         ctx.beginPath();
-        var h20 = 20*this.uy; 
-        var h24 = 24*this.uy; 
-        var h28 = 28*this.uy; 
-        var h38 = 38*this.uy; 
-        for (var j=0; j < this.conf.range.length; j++ ) {
-           var realVal = this.conf.range[j];
-           var pxVal = parseInt(this.realToPix(realVal)) + dx;
+        var h20 = 20*u.y; 
+        var h24 = 24*u.y; 
+        var h28 = 28*u.y; 
+        var h38 = 38*u.y; 
+        for (var j=0; j < this.model.conf.range.length; j++ ) {
+           var realVal = this.model.conf.range[j];
+           var pxVal = parseInt(this.model.realToPix(realVal)) + dx;
            ctx.moveTo(pxVal, this.track.y + h20);
            ctx.lineTo(pxVal, this.track.y + h28);
            ctx.stroke(); // tickMarkers
            ctx.fillStyle = "#000";  // TEXT
            if (this.conf.showLabels) {
               var enoughSpace = true;
-              if (j == this.conf.range.length-1) {  // LAST
-                 var prevPxVal = this.realToPix(this.conf.range[j-1]); 
+              if (j == this.model.conf.range.length-1) {  // LAST
+                 var prevPxVal = this.model.realToPix(this.model.conf.range[j-1]); 
                  if (pxVal - prevPxVal < 30) {enoughSpace = false; }
               }
               if (enoughSpace) {
@@ -474,9 +285,9 @@
            }
            // Draw minor ticks
            if (!this.conf.showMinorTicks) continue;  // NEXT ITERATION
-           if (j < this.conf.range.length-1) {
+           if (j < this.model.conf.range.length-1) {
               var minorTick = pxVal;
-              var nextTick = this.realToPix(this.conf.range[j+1]);
+              var nextTick = this.model.realToPix(this.model.conf.range[j+1]);
               while (true) {
                  minorTick = minorTick + minorTickSpace;  // pixels
                  if (minorTick >= nextTick) break;
@@ -490,7 +301,7 @@
      }  // drawTickLabels()
 
      this.initEventListener = function() {
-        // Listen for mouse events 
+        // Listen to mouse events 
         var dragok;
         var startX;  // last mouse position x
         var startY;  // last mouse position y
@@ -501,12 +312,10 @@
         this.canvas.addEventListener("mousemove", onMouseMove, false);
 
         function onMouseDown(evt) {
-           if (thisSlider.conf.disabled) {console.log("MOUSEDOWN DISABLED"); return 0;} // MOUSE DISABLED
+           if (thisView.model.conf.disabled) {console.log("MOUSEDOWN DISABLED"); return 0;} // MOUSE DISABLED
+
            function mouseDownEvent() {
               window.addEventListener('mouseup', onMouseUp, false);
-              if (thisSlider.conf.onMouseDown && typeof thisSlider.conf.onMouseDown === 'function') {
-                 thisSlider.conf.onMouseDown();  // CALLBACK 
-              }
               return 0;
            }  // mouseDownEvent()
 
@@ -518,14 +327,15 @@
 
            dragok = false;
 
-           // TEST TO SEE WHERE MOUSE IS CLICKED DOWN
+           // First test WHERE mouse is clicked down (handle or track).
            // If handle clicked, we must take into account overlaying handles.
            // If clicked on overlaying handles: choose handle with largest range.
-           var rangeArray = thisSlider.track.rangeArray();
+           var rangeArray = thisView.model.rangeArray();
            var maxRange = 0; var maxIdx = -1;
            var handleClicked = false;
-           for (var j=0; j < thisSlider.track.values.length; j++ ) {
-              if (thisSlider.sH[j].contains(m)) {
+           for (var j=0; j < thisView.sH.length; j++ ) {
+              // Loop through handles
+              if (thisView.sH[j].contains(m)) {
                  var range = rangeArray[j][2] - rangeArray[j][0];
                  if (range > maxRange) { maxRange = range; maxIdx = j; }
               }
@@ -535,18 +345,19 @@
                  aH = maxIdx;
            }
 
-           var trackClicked = thisSlider.track.contains(m);
+           var trackClicked = thisView.track.contains(m);
            if (handleClicked) {
-              // Start dragging
+              // EVENT mouse down on handle >> Ready for dragging
               dragok = true;
-              mouseDownEvent();
               // save the current mouse position
-              startX = crop(m.x, thisSlider.track.xmin, thisSlider.track.xmax);
+              startX = crop(m.x, thisView.xmin, thisView.xmax);
               startY = m.y;
+              thisView.model.eventHandler("mouseDownOnHandle", aH, startX);   //***
+              mouseDownEvent();  // Start dragging can begin
            } else if (trackClicked) {
-              startX = crop(m.x, thisSlider.track.xmin, thisSlider.track.xmax);
+              startX = crop(m.x, thisView.xmin, thisView.xmax);
               startY = m.y;
-              // Track clicked: choose the handler closest to startX
+              // Track clicked: choose value (handle, index) closest to startX
               var minDist = +Infinity; var minIdx = -1;
               for (var j=0; j < rangeArray.length; j++ ) {
                  if ((startX > rangeArray[j][0]) && (startX < rangeArray[j][2])) {
@@ -555,13 +366,13 @@
                  }
               }
               if (minIdx >= 0) {
+                 // EVENT mouse down on track (not handle) >> set value
                  aH = minIdx;
-                 var startX2 = thisSlider.snapPixToTick(startX);
-                 thisSlider.track.setValue(aH, startX2);
+                 var newPxVal = startX;
+                 thisView.model.eventHandler("mouseDownOnTrack", aH, newPxVal);   //***
                  mouseDownEvent();
               }
            }
-
            return 0;
         }  // onMouseDown()
 
@@ -572,27 +383,21 @@
 
            // Remove event to prevent fired by other events of different sliders.
            window.removeEventListener('mouseup', onMouseUp, false);
+           var pxVal = startX;  // last registered mouse position before mouse up
 
            // clear all the dragging flags
            if (dragok) {
               dragok = false;  // Dragging stopped
-              if (thisSlider.sH[aH].isDragging) { 
-                 // Actions on mouseUp 
-                 thisSlider.sH[aH].isDragging = false;
-                 var startX2 = thisSlider.snapPixToTick(startX);
-                 thisSlider.track.setValue(aH, startX2);
-                 if (thisSlider.conf.onDragEnd && typeof thisSlider.conf.onDragEnd === 'function') {
-                    var realVal = thisSlider.pixToReal(startX2);
-                    thisSlider.conf.onDragEnd(aH, realVal);  // CALLBACK
-                 }
+              if (thisView.sH[aH].isDragging) { 
+                 // EVENT mouseUp after dragging (dragEnd) >> set value 
+                 thisView.sH[aH].isDragging = false;
+                 thisView.model.eventHandler("mouseUpDragEnd", aH, pxVal);   //***
               }
            }
 
-           if (thisSlider.conf.onMouseUp && typeof thisSlider.conf.onMouseUp === 'function') {
-              thisSlider.conf.onMouseUp();  // CALLBACK 
-           }
+           thisView.model.eventHandler("mouseUp", aH, pxVal);   //***
 
-           thisSlider.redraw();
+           thisView.redraw();
            return 0;
         }  // onMouseUp()
 
@@ -602,33 +407,30 @@
                var m = getMousePos(evt);  // get the current mouse position
                if (m == null) { return null; }   // No data
 
-               if (thisSlider.sH[aH].isDragging == false) {
-                  // Dragging started
-                  if (thisSlider.conf.onDragStart && typeof thisSlider.conf.onDragStart === 'function') {
-                     var realVal = thisSlider.getSliderValue(aH);
-                     thisSlider.conf.onDragStart(aH, realVal);  // CALLBACK with current slider value
-                  }
+               if (thisView.sH[aH].isDragging == false) {
+                  // EVENT mouseMove FIRST time after being ready for dragging >> publish onDragStart
+                  thisView.model.eventHandler("dragStart", aH);   //***
                }
 
-               thisSlider.sH[aH].isDragging = true; 
+               thisView.sH[aH].isDragging = true; 
                evt.preventDefault();
                evt.stopPropagation();
 
                // Calculate the distance the mouse has moved since the last mousemove
-               var dx = m.x - startX;
+               var dx = m.x - startX; 
                var dy = m.y - startY;
 
                // Move handle that isDragging by the distance the mouse has moved since the last mousemove.
                // dy not used: y fixed (hor move)
 
-               var newVal = +thisSlider.track.getValue(aH) + dx;  // + > force add num
-               thisSlider.track.setValue(aH, newVal);
+               var newVal = +thisView.model.getPixValue(aH) + dx;  // + > force add num
+               thisView.model.setPixValue(aH, newVal, {snap: false, publish: true} ); // Running value: do not snap to tick
 
                // redraw the scene with the new positions 
-               thisSlider.redraw();
+               thisView.redraw();
 
                // reset the starting mouse position for the next mousemove
-               startX = crop(m.x, thisSlider.track.xmin, thisSlider.track.xmax);
+               startX = crop(m.x, thisView.xmin, thisView.xmax);
                startY = m.y;
            }
            return 0;
@@ -642,8 +444,8 @@
            if (evt.button === button.right) { return null; }    // skip right mouse click
            if (evt.button === button.middle) { return null; }   // skip middle mouse click
 
-           if (!thisSlider.canvas.getBoundingClientRect) { return null; }
-           var rect = thisSlider.canvas.getBoundingClientRect();
+           if (!thisView.canvas.getBoundingClientRect) { return null; }
+           var rect = thisView.canvas.getBoundingClientRect();
            var mousePos = {
               x: parseInt(evt.clientX - rect.left),
               y: parseInt(evt.clientY - rect.top)
@@ -655,10 +457,260 @@
         return 0;
      }  // === initEventListener ===
 
-     this.init();
+    var Track = function() {
+       // Track object for VIEW.
+       // A slider is in concept a line from point a to point b with one or more points c at this line.
+       // The track represents this line. It is drawn as a rectangle.
+       // The track records the values of the slider along the width of the track.
+       // Draw function. Partitioning of the track to highlight parts.
 
+       this.x = 40; this.y = 100; this.w = 500; this.h = 14; // SEE INIT(). Dimensions of track (px).
+       this.fillColor = "#EAEAEA"; 
+       this.highlightColor = "#3FB8AF";
+       this.highlightGradient = {stop1: "#4CE6D8", stop2: "#369B93"};
+       this.strokeColor = "#000";
+
+       this.contains = function(iPoint) {
+          var rect = {x: this.x, y: this.y, w: this.w, h: this.h};
+          return pointInRect(rect, iPoint);
+       }  // contains()
+
+       this.createSections = function() {
+          // Partition the track into rectangles positioned between slider values.  nouislider term: connects
+          var Section = {x: this.x, y: this.y, w: this.w, h: this.h, highlight: false};
+          var arr = thisView.model.trackArray();
+
+          var sections = new Array(thisView.model.values.length + 1);
+          for (var j=0; j < arr.length - 1; j++ ) {
+             var section = Object.create(Section);
+             section.x = arr[j];
+             section.w = arr[j+1] - arr[j];
+             if (j % 2 == 0) section.highlight = true;  // if even: highlight
+             sections[j] = section;
+          }
+          return sections;
+       }  // createSections()
+
+       this.draw = function(ctx) {
+          ctx.fillStyle = this.fillColor;
+          ctx.strokeStyle = this.strokeColor;
+          ctx.lineWidth = 1; var dx = 0.5; var dy = 0.5; // sharp line/border
+          ctx.roundRect(this.x+dx, this.y+dy, this.w, this.h, 3).fill();
+          ctx.roundRect(this.x+dx, this.y+dy, this.w, this.h, 3).stroke();
+          //////drawRect(ctx, this.x+dx, this.y+dy, this.w, this.h);
+          // Draw sections (with highlights)
+          ctx.lineWidth = 1;
+
+          var sect = this.createSections();
+          for (var j=0; j < sect.length; j++ ) {
+             if (sect[j].highlight == true) {
+                var grd = ctx.createLinearGradient(0,sect[j].y+dy,0,sect[j].y+dy + sect[j].h); // vertical gradient
+                grd.addColorStop(0,this.highlightGradient.stop1);
+                grd.addColorStop(1,this.highlightGradient.stop2);
+                ctx.fillStyle = grd;
+                //  ctx.fillStyle = this.highlightColor;
+                ctx.roundRect(sect[j].x+dx, sect[j].y+dy, sect[j].w, sect[j].h, 3).fill();
+             }
+          }
+
+          return 0;
+       }
+       return this;
+     };  // === TRACK ===
+
+     ///////this.init();
      return this;
-   } // === PIXSLD() ===
+   } // === VIEW() ===
+
+   //EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+
+   var MODEL = function (iConf) {
+     // Object holding data and do processing of the slider.
+     // Important property: values array (the state of the slider). Measured in pixels.
+     // Real values are calculated from the pixel values.
+     // MODEL can read VIEW properties and methods. Decoupled by functionality.
+
+     var thisModel = this;  // global
+     this.view = null;
+     this.conf = iConf;
+     /*
+         conf.range = rangeValues;
+         conf.start = this.conf.start;
+         conf.disabled = this.conf.disabled; 
+         conf.onChange = this.conf.onChange;
+         conf.onDragStart = this.conf.onDragStart;
+         conf.onDragEnd = this.conf.onDragEnd;
+         conf.onMouseUp = this.conf.onMouseUp;
+         conf.onMouseDown = this.conf.onMouseDown;
+         conf.snapToTicks = this.conf.snapToTicks;
+     */
+     // MIN/MAX of RANGE: used by function "remap" for conversion slider values pix <-> real
+     this.re = {rmin: 0, rmax: 100};  // Limits of real values (floats)
+     this.px = {rmin: 0, rmax: 100};  // Limits of pixel values (floats)
+     this.values = [];   // Array object of slider values (pixels). Can be changed by handles. Often 1 or 2 values, sometimes more.
+
+     // === METHODS ===
+     this.init = function () {
+        if (this.conf.range.length < 2) this.conf.range = [0,100];
+        if (this.conf.start.length == 0) this.conf.start = [0];
+        this.re.rmin = this.conf.range[0];
+        this.re.rmax = this.conf.range[this.conf.range.length -1];
+        this.px.rmin = this.view.xmin;  // From VIEW
+        this.px.rmax = this.view.xmax;  // From VIEW
+        this.initSliderValues();  
+        return 0;
+     }  // init()
+
+     this.getPixValue = function (idx) {
+        // Return slider value with given index: this.values[idx]
+        // Neg idx allowed: -1 >> last
+        var pxVal = this.values.slice(idx)[0]; 
+        return pxVal;
+     }  // getPixValue()
+
+     this.setPixValue = function (idx, pxVal, callback) {
+        // Set pixel slider value with given index. Neg index NOT allowed.
+        // Monitor SORTING of values and correct if needed.
+        callback = callback || {snap: true, publish: true};  // default
+        if (idx < 0 || idx >= this.len) {console.log("Error index setValue"); return 0;}
+        var pxVal2 = pxVal;
+        var arr = this.rangeArray();
+        var minVal = arr[idx][0];   var maxVal = arr[idx][2];  // Limits for handler with index idx
+        if (pxVal2 < minVal) pxVal2 = minVal;
+        if (pxVal2 > maxVal) pxVal2 = maxVal;
+
+        if (callback.snap) pxVal2 = this.snapPixToTick(pxVal2);
+
+        this.values[idx] = pxVal2;                // (1) set value
+        this.view.onChangePixValue(idx, pxVal2);  // (2) update view
+
+        if (callback.publish) {
+           this.eventHandler("onChange", idx, pxVal2);   //***
+        }
+        return 0;
+     }  // setPixValue()
+
+     this.getRealValue = function(idx) {
+        var pxVal = this.getPixValue(idx);
+        var realVal = this.pixToReal(pxVal);
+        return realVal;
+     }  // getRealValue()
+
+     this.setRealValue = function(idx, realVal) {
+        var realVal2 = crop(realVal, this.re.rmin, this.re.rmax);  // update if too small/large
+        var pxVal = this.realToPix(realVal2);
+        this.setPixValue(idx, pxVal, {snap: true, publish: false} );  // NO PUBLISH TO PREVENT ENDLESS LOOP
+        return 0;
+     }  // setRealValue()
+
+     this.rangeArray = function() {
+        // Array of ranges of each pixel value (handle) used to keep increasing order.
+        // Element of resulting array is array [min, value, max]
+        var rangeArr = new Array(this.values.length);
+        var arr = this.trackArray();  // VALUES WITH MIN/MAX
+        var idx = 0;
+        for (var j=1; j < arr.length - 1; j++ ) {
+           rangeArr[idx] = [arr[j-1], arr[j], arr[j+1]];
+           idx++;
+        }
+        return rangeArr;
+     }  // rangeArray()
+
+     this.trackArray = function() {
+        // Array of VALUES extended with MIN/MAX 
+        var arr = [];  // Length: values.length + 2
+        arr.push(this.px.rmin); 
+        arr.push(...this.values);  // spread operator
+        arr.push(this.px.rmax);
+        return arr;
+     }  // trackArray()
+
+     this.initSliderValues = function() {
+        this.values = Array(this.conf.start.length).fill(null);
+        for (var j=0; j < this.conf.start.length; j++ ) {
+           var realVal = this.conf.start[j];
+           var realVal2 = crop(realVal, this.re.rmin, this.re.rmax);  // !!! update if too small/large
+           var pxVal = this.realToPix(realVal2);
+           var pxVal2 = this.snapPixToTick(pxVal);
+           this.values[j] = pxVal2;  // NO USER-CALBACK and NO onChangePixValue
+        }
+        //console.log("INIT VALUES 2", this.values);
+        return 0;
+     }  // initSliderValues()
+
+     this.pixToReal = function(iPixVal) { 
+        // Convert pixel value to real value
+        // Pixel values and real values are floats
+        var realVal = remap(iPixVal, this.px.rmin, this.px.rmax, this.re.rmin, this.re.rmax); 
+        //console.log("REMAP pixToReal", iPixVal, realVal);
+        return realVal;
+     }  // pixToReal()
+
+     this.realToPix = function(iRealVal) {
+        // Convert real value to pixel value
+        // Pixel values and real values are floats
+        var pixVal = remap(iRealVal, this.re.rmin, this.re.rmax, this.px.rmin, this.px.rmax);
+        //console.log("REMAP pixToReal", iRealVal, pixVal);
+        return pixVal;
+     }  // realToPix()
+
+     this.snapPixToTick = function(pxVal) {
+        //console.log("SNAPTOTICK", this.conf.snapToTicks);
+        if (!this.conf.snapToTicks) return pxVal;  // NOTHING TO DO
+        var realVal = this.pixToReal(pxVal);
+        var realVal2 = snapFromTickvalues(realVal, this.conf.range);
+        var pxVal2 = this.realToPix(realVal2);
+        return pxVal2;
+     }  // snapPixToTick()
+
+     this.eventHandler = function(event, idx, pxVal) {
+        switch(event) {
+           case "mouseDownOnHandle":
+              if (this.conf.onMouseDown && typeof this.conf.onMouseDown === 'function') {
+                 this.conf.onMouseDown(); 
+              }
+              break;
+           case "mouseDownOnTrack":
+              if (this.conf.onMouseDown && typeof this.conf.onMouseDown === 'function') {
+                 this.conf.onMouseDown(); 
+              }
+              this.setPixValue(idx, pxVal, {snap: true, publish: true});
+              break;
+           case "dragStart":
+              if (this.conf.onDragStart && typeof this.conf.onDragStart === 'function') {
+                 var realVal = this.getRealValue(idx);  // no pxVal; use current val
+                 this.conf.onDragStart(idx, realVal);   // CALLBACK with current slider value
+              }
+              break;
+           case "mouseUpDragEnd":
+              this.setPixValue(idx, pxVal, {snap: true, publish: true} );
+              if (this.conf.onDragEnd && typeof this.conf.onDragEnd === 'function') {
+                    var realVal = this.pixToReal(pxVal);
+                    this.conf.onDragEnd(idx, realVal);
+                 }
+              break;
+           case "mouseUp":
+              if (this.conf.onMouseUp && typeof this.conf.onMouseUp === 'function') {
+                 this.conf.onMouseUp(); 
+              }
+              break;
+           case "onChange":
+              // Call user defined callback for model (4) 
+              if (this.conf.onChange && typeof this.conf.onChange === 'function') {
+                 var realVal = this.pixToReal(pxVal);
+                 this.conf.onChange(idx, realVal);
+              }
+              break;
+           default:
+              // code block
+        } 
+        return 0;
+     }  // eventHandler()
+
+     /////////this.init();
+     return this;
+   } // === MODEL() ===
+   // EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEe
 
    var Handle = {
       // Rectangle or Ellipse/Circle as sliderHandle
@@ -738,16 +790,18 @@
 
 
    //===============================================================================
-   var CANSLD = function(iConf) { 
+   var FRONTEND = function(iConf) { 
       // User interface
       var _this = this;  // global
-      var pixSlider;
-      this.conf = {};
+      this.model = {};
+      this.view = {};
+      this.conf = {};  // defaults
       this.conf.canvas = null;      // canvas id or canvas element Required.
       this.conf.range = [0,100];    // {step: 10};  or: {count: 15} or [0,3,7,9,15,27,100] 
       this.conf.start = [0, 0];             // set start values (= number of handles)
       this.conf.handle = {shape: "rectangle", w: 20, h: 20, hue: null};   // shape of handle 
       this.conf.format = {decimals: 0, prefix: "", suffix: ""};  // Simple number formatting 
+      this.conf.baseColor = {h: 207, s: 60, v: 100};  // Defines color scheme. Valid HSV color.
       // The following config properties can be updated on the fly.
       this.conf.disabled = false;
       this.conf.onChange = null;      // Event fired if slider value changed (parm: index, value)
@@ -761,122 +815,141 @@
       this.conf.showMinorTicks = true;   // Show minor ticks if showMajorTicks == true 
       this.conf.showToolTip = true;      // boolean
       this.conf.showValueBox = false;    // boolean
-      this.conf.baseColor = {h: 207, s: 60, v: 100};  // Defines color scheme. Valid HSV color.
 
       this.init = function() {
          // Override default conf by user settings (iConf)
          for (var i in this.conf) { if (iConf.hasOwnProperty(i)) this.conf[i] = iConf[i]; } 
 
-         var rangeValues = this.createRangeValues();  // update: conf.range
+         // User defined cavans element. Width and height set in HTML. Auto-resize of slider (width).
+         // The width attribute of canvas element defaults to 300, and the height attribute defaults to 150.
+         // DO NOT USE CSS (stylesheet) TO SET WIDTH
+         if (typeof this.conf.canvas === 'object') var canvasElem = this.conf.canvas;
+         else var canvasElem = document.getElementById(this.conf.canvas.replace('#', ''));
+
+         if (!canvasElem) return console.log('Cannot find canvas element...');  // STOP
+         console.log("Canvas element found with width: ", canvasElem.width, "and height: ", canvasElem.height );
+
+         var rangeValues = createRangeValues(this.conf.range); 
          console.log("RANGE VALUES: ", rangeValues);
          this.conf.start.sort(function(a, b){return a-b});  // sort
          console.log("START VALUES: ", this.conf.start);
 
-         pixSlider = new PIXSLD({
-             canvas: this.conf.canvas,
-             range: rangeValues,
-             start: this.conf.start,
-             handle: this.conf.handle,
-             format: this.conf.format,
-             disabled: this.conf.disabled, 
-             onChange: this.conf.onChange,
-             onDragStart: this.conf.onDragStart,
-             onDragEnd: this.conf.onDragEnd,
-             onMouseUp: this.conf.onMouseUp,
-             onMouseDown: this.conf.onMouseDown,
-             snapToTicks: this.conf.snapToTicks,
-             showLabels: this.conf.showLabels,
-             showMajorTicks: this.conf.showMajorTicks,
-             showMinorTicks: this.conf.showMinorTicks,
-             showToolTip: this.conf.showToolTip,
-             showValueBox: this.conf.showValueBox,
-             baseColor: this.conf.baseColor
-         });
+         var confModel = {};
+         confModel.range = rangeValues;    // update: conf.range 
+         confModel.start = this.conf.start;
+         confModel.disabled = this.conf.disabled; 
+         confModel.onChange = this.conf.onChange;
+         confModel.onDragStart = this.conf.onDragStart;
+         confModel.onDragEnd = this.conf.onDragEnd;
+         confModel.onMouseUp = this.conf.onMouseUp;
+         confModel.onMouseDown = this.conf.onMouseDown;
+         confModel.snapToTicks = this.conf.snapToTicks;
+
+         var confView = {};
+         confView.canvas = canvasElem;
+         confView.handle = this.conf.handle;
+         confView.format = this.conf.format;
+         confView.baseColor = this.conf.baseColor;
+         confView.showLabels = this.conf.showLabels;
+         confView.showMajorTicks = this.conf.showMajorTicks;
+         confView.showMinorTicks = this.conf.showMinorTicks;
+         confView.showToolTip = this.conf.showToolTip;
+         confView.showValueBox = this.conf.showValueBox;
+
+         this.model = new MODEL(confModel);
+         this.view = new VIEW(confView);
+         this.view.model = this.model;
+         this.model.view = this.view;
+         this.model.init();
+         this.view.init();
+
          return 0;
       }  // init()
 
       this.getValue = function(idx) {
-         // Returns value of handle with idx
+         // FOR EXTERNAL USE: Returns value of handle with idx
          if (idx==undefined) return undefined;
-         return pixSlider.getSliderValue(idx);
+         return this.model.getRealValue(idx);
       }  // getValue()
 
-      this.setValue = function(i, val) {
-         // Function that returns itself!!! Example: this.setValue(1,10)(2,20)(3,30)(4,40)
-         if (i==undefined || val == undefined) return 0;
-         function setValue(i, val) {
-            pixSlider.setSliderValue(i,val);
-            //console.log("TEST 1", i, val);
-            pixSlider.redraw();
+      this.setValue = function(i, realVal) {
+         //  FOR EXTERNAL USE: Function that returns itself!!! Example: this.setValue(1,10)(2,20)(3,30)(4,40)
+         if (i==undefined || realVal == undefined) return 0;
+         function setValue(i, realVal) {
+            _this.model.setRealValue(i,realVal);
+              //console.log("TEST 1", i, realVal);
+            _this.view.redraw();
             return setValue;
          }
-         setValue(i,val);
+         setValue(i,realVal);
          return setValue;
       }  // setValue()
 
-      this.createRangeValues = function() {
-         // Create array with range of values depending on user input in iConf
+      // FOR EXTERNAL USE: definition of how to set properties
+      Object.defineProperty(this, 'disabled', {
+        set: function(val) { this.model.conf.disabled = val; }
+      });
+      Object.defineProperty(this, 'onChange', {
+        set: function(val) { this.model.conf.onChange = val; }
+      });
+      Object.defineProperty(this, 'onDragStart', {
+        set: function(val) { this.model.conf.onDragStart = val; }
+      });
+      Object.defineProperty(this, 'onDragEnd', {
+        set: function(val) { this.model.conf.onDragEnd = val; }
+      });
+      Object.defineProperty(this, 'onMouseUp', {
+        set: function(val) { this.model.conf.onMouseUp = val; }
+      });
+      Object.defineProperty(this, 'onMouseDown', {
+        set: function(val) { this.model.conf.onMouseDown = val; }
+      });
+      Object.defineProperty(this, 'snapToTicks', {
+        set: function(val) { this.model.conf.snapToTicks = val; }
+      });
+      //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      Object.defineProperty(this, 'showLabels', {
+        set: function(val) { this.view.conf.showLabels = val; this.view.redraw(); }
+      });
+      Object.defineProperty(this, 'showMajorTicks', {
+        set: function(val) { this.view.conf.showMajorTicks = val; this.view.redraw(); }
+      });
+      Object.defineProperty(this, 'showMinorTicks', {
+        set: function(val) { this.view.conf.showMinorTicks = val; this.view.redraw(); }
+      });
+      Object.defineProperty(this, 'showToolTip', {
+        set: function(val) { this.view.conf.showToolTip = val; this.view.redraw(); }
+      });
+      Object.defineProperty(this, 'showValueBox', {
+        set: function(val) { this.view.conf.showValueBox = val; this.view.redraw(); }
+      });
+
+      function createRangeValues(iRange) {
+         // Create array with input iRange depending on definition of iRange.
          var values = [0,100];  // default
-         var isArray = (this.conf.range instanceof Array);      // Boolean: true if prop 'values' is array
+         var isArray = (iRange instanceof Array);      // Boolean: true if prop 'values' is array
          if (isArray) {
-            if (this.conf.range.length < 2) values = [0,100]; else values = this.conf.range;
+            if (iRange.length < 2) values = [0,100]; else values = iRange;
          }
          if (!isArray) {
-            if (this.conf.range.hasOwnProperty("min")) var rmin = this.conf.range.min; else rmin = 0;
-            if (this.conf.range.hasOwnProperty("max")) var rmax = this.conf.range.max; else rmax = rmin + 100;
+            if (iRange.hasOwnProperty("min")) var rmin = iRange.min; else rmin = 0;
+            if (iRange.hasOwnProperty("max")) var rmax = iRange.max; else rmax = rmin + 100;
             values = [rmin, rmax];
-            if (this.conf.range.hasOwnProperty("step")) values = linSpaceS(rmin, rmax, this.conf.range.step);
-            if (this.conf.range.hasOwnProperty("count")) values = linSpaceN(rmin, rmax, this.conf.range.count);
+            if (iRange.hasOwnProperty("step")) values = linSpaceS(rmin, rmax, iRange.step);
+            if (iRange.hasOwnProperty("count")) values = linSpaceN(rmin, rmax, iRange.count);
          }
          // Sort array (to be sure of increasing values)
          values.sort(function(a, b){return a-b});
          return values;
       }  // createRangeValues()
 
-      Object.defineProperty(this, 'disabled', {
-        set: function(val) { pixSlider.conf.disabled = val; }
-      });
-      Object.defineProperty(this, 'onChange', {
-        set: function(val) { pixSlider.conf.onChange = val; }
-      });
-      Object.defineProperty(this, 'onDragStart', {
-        set: function(val) { pixSlider.conf.onDragStart = val; }
-      });
-      Object.defineProperty(this, 'onDragEnd', {
-        set: function(val) { pixSlider.conf.onDragEnd = val; }
-      });
-      Object.defineProperty(this, 'onMouseUp', {
-        set: function(val) { pixSlider.conf.onMouseUp = val; }
-      });
-      Object.defineProperty(this, 'onMouseDown', {
-        set: function(val) { pixSlider.conf.onMouseDown = val; }
-      });
-      Object.defineProperty(this, 'snapToTicks', {
-        set: function(val) { pixSlider.conf.snapToTicks = val; }
-      });
-      Object.defineProperty(this, 'showLabels', {
-        set: function(val) { pixSlider.conf.showLabels = val; pixSlider.redraw(); }
-      });
-      Object.defineProperty(this, 'showMajorTicks', {
-        set: function(val) { pixSlider.conf.showMajorTicks = val; pixSlider.redraw(); }
-      });
-      Object.defineProperty(this, 'showMinorTicks', {
-        set: function(val) { pixSlider.conf.showMinorTicks = val; pixSlider.redraw(); }
-      });
-      Object.defineProperty(this, 'showToolTip', {
-        set: function(val) { pixSlider.conf.showToolTip = val; pixSlider.redraw(); }
-      });
-      Object.defineProperty(this, 'showValueBox', {
-        set: function(val) { pixSlider.conf.showValueBox = val; pixSlider.redraw(); }
-      });
-
       this.init();
       return this;
-   }  // === CANSLD() ===
+   }  // === FRONTEND() ===
 
-   window.CanvasSlider = CANSLD;   // External view
-   //window.PixelSlider = PIXSLD;  // Hidden
-})();
+   window.CanvasSlider = FRONTEND;   // FOR EXTERNAL USE: name of slider object to create new instance
+   return 0;
+})(); // FRONTEND
 //==================================================================================================
 
 // === GENERAL FUNCTIONS ===
@@ -1045,7 +1118,7 @@ function getRandomColor() {
 var Color = function (iColor) {
    // Very simple object to convert HSV color to HEX color.
    // Usage: var hex = new Color([257, 98, 12]).hex;
-   // Parm: HSV color as array [h,s,v] with h in [0,360], s in [0,100], v in [0,100]
+   // Parm iColor: array [h,s,v] with h in [0,360], s in [0,100], v in [0,100]
    this.color = convert(iColor);  // HSV with components in [0,1]
 
    function convert(iColor) {
@@ -1097,6 +1170,7 @@ var Color = function (iColor) {
 // TEST COLORS
 //var c = new Color([10,100,100]);
 //console.log("Color: ", c.color, c.hex);
+//=======================================================================================
+//=======================================================================================
 
-//==========================================================================
 
