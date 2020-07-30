@@ -403,6 +403,10 @@
 
         function onMouseMove(evt) {
            // Handle mouse moves if we're dragging anything...
+           if (!dragok) {
+              // Hover over canvas without dragging.
+              setMouseCursor(evt);
+           }
            if (dragok) {
                var m = getMousePos(evt);  // get the current mouse position
                if (m == null) { return null; }   // No data
@@ -435,7 +439,29 @@
            }
            return 0;
         }  // onMouseMove()
+       
+        function setMouseCursor(evt) {
+           var m = getMousePos(evt);  // get the current mouse position
+           if (m == null) { return null; }   // No data
+           var found = false;
 
+           for (var j=0; j < thisView.sH.length; j++ ) {
+              // Loop through handles
+              if (thisView.sH[j].contains(m)) { found = true; break; }
+           }
+           if (found) {
+              thisView.canvas.style.cursor = "col-resize";
+           }
+           else {
+              if (thisView.track.contains(m)) {
+                 thisView.canvas.style.cursor = "pointer";
+              }
+              else {
+                 thisView.canvas.style.cursor = "default";
+              }
+           }
+           return 0;
+        }  // setMouseCursor()
 
         function getMousePos(evt) {
            // Returns mouse position 
