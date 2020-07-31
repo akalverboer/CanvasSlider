@@ -852,13 +852,13 @@
          if (typeof this.conf.canvas === 'object') var canvasElem = this.conf.canvas;
          else var canvasElem = document.getElementById(this.conf.canvas.replace('#', ''));
 
-         if (!canvasElem) return console.log('Cannot find canvas element...');  // STOP
-         console.log("Canvas element found with width: ", canvasElem.width, "and height: ", canvasElem.height );
+         if (!canvasElem) return console.log('CanvasSlider: cannot find canvas element...');  // STOP
+         //console.log("Canvas element found with width: ", canvasElem.width, "and height: ", canvasElem.height );
 
          var rangeValues = createRangeValues(this.conf.range); 
-         console.log("RANGE VALUES: ", rangeValues);
+         //console.log("RANGE VALUES: ", rangeValues);
          this.conf.start.sort(function(a, b){return a-b});  // sort
-         console.log("START VALUES: ", this.conf.start);
+         //console.log("START VALUES: ", this.conf.start);
 
          var confModel = {};
          confModel.range = rangeValues;    // update: conf.range 
