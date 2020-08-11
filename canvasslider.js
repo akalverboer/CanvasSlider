@@ -717,7 +717,8 @@
               break;
            case "mouseUp":
               if (this.conf.onMouseUp && typeof this.conf.onMouseUp === 'function') {
-                 this.conf.onMouseUp(); 
+                 var realVal = this.pixToReal(pxVal);   // *AK* 11-08-2020
+                 this.conf.onMouseUp(idx, realVal);     // *AK* 11-08-2020
               }
               break;
            case "onChange":
