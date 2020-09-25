@@ -510,7 +510,7 @@
           for (var j=0; j < arr.length - 1; j++ ) {
              var section = Object.create(Section);
              section.x = arr[j];
-             section.w = arr[j+1] - arr[j];
+             section.w = Math.round(arr[j+1] - arr[j]);
              if (j % 2 == 0) section.highlight = true;  // if even: highlight
              sections[j] = section;
           }
